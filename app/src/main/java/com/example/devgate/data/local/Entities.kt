@@ -70,3 +70,16 @@ data class JulesStepEntity(
     val logOutput: String,
     val timestamp: Long
 )
+
+@Entity(tableName = "provider_chats")
+data class ProviderChatEntity(
+    @PrimaryKey val id: String,
+    val provider: String,
+    val model: String,
+    val prompt: String,
+    val response: String,
+    val timestamp: Long,
+    val latencyMs: Long,
+    val isSuccess: Boolean,
+    val error: String?
+)

@@ -45,6 +45,7 @@ fun DevGateApp(viewModel: DevGateViewModel) {
     val snippets by viewModel.snippets.collectAsStateWithLifecycle()
     val julesTasks by viewModel.julesTasks.collectAsStateWithLifecycle()
     val currentJulesSteps by viewModel.currentJulesSteps.collectAsStateWithLifecycle()
+    val providerChatHistory by viewModel.providerChatHistory.collectAsStateWithLifecycle()
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -177,7 +178,92 @@ fun DevGateApp(viewModel: DevGateViewModel) {
 
                 DevGateScreen.SETTINGS -> {
                     SettingsScreen(
-                        apiKeyConfigured = uiState.apiKeyConfigured
+                        apiKeyConfigured = uiState.apiKeyConfigured,
+                        providerSettings = uiState.providerSettings,
+                        onUpdateProviderSettings = viewModel::updateProviderSettings,
+                        hermesBackendStatus = uiState.hermesBackendStatus,
+                        isCheckingHermesHealth = uiState.isCheckingHermesHealth,
+                        onCheckHermesHealth = viewModel::checkHermesHealth
+                    )
+                }
+
+                DevGateScreen.VERTEX_AI -> {
+                    ProviderScreen(
+                        title = "Vertex AI Enterprise",
+                        providerName = "VERTEX_AI",
+                        provider = com.example.devgate.data.api.AiProvider.VERTEX_AI,
+                        chatHistory = providerChatHistory.filter { it.provider == "VERTEX_AI" },
+                        promptInput = uiState.providerPromptInput,
+                        selectedModel = uiState.providerSelectedModel,
+                        isExecuting = uiState.isProviderExecuting,
+                        output = uiState.providerOutput,
+                        latencyMs = uiState.providerLatencyMs,
+                        availableModels = com.example.devgate.data.api.ProviderRouter.getAvailableModels(com.example.devgate.data.api.AiProvider.VERTEX_AI),
+                        onPromptChange = viewModel::setProviderPromptInput,
+                        onSelectModel = viewModel::setProviderModel,
+                        onExecute = { viewModel.setSelectedProvider(com.example.devgate.data.api.AiProvider.VERTEX_AI); viewModel.executeProviderQuery() },
+                        onClearHistory = viewModel::clearProviderChatHistory,
+                        description = "Google Cloud enterprise AI with IP-protected inference. Configure project ID and gCloud access token in Settings."
+                    )
+                }
+
+                DevGateScreen.CLAUDE -> {
+                    ProviderScreen(
+                        title = "Claude by Anthropic",
+                        providerName = "CLAUDE",
+                        provider = com.example.devgate.data.api.AiProvider.CLAUDE,
+                        chatHistory = providerChatHistory.filter { it.provider == "CLAUDE" },
+                        promptInput = uiState.providerPromptInput,
+                        selectedModel = uiState.providerSelectedModel,
+                        isExecuting = uiState.isProviderExecuting,
+                        output = uiState.providerOutput,
+                        latencyMs = uiState.providerLatencyMs,
+                        availableModels = com.example.devgate.data.api.ProviderRouter.getAvailableModels(com.example.devgate.data.api.AiProvider.CLAUDE),
+                        onPromptChange = viewModel::setProviderPromptInput,
+                        onSelectModel = viewModel::setProviderModel,
+                        onExecute = { viewModel.setSelectedProvider(com.example.devgate.data.api.AiProvider.CLAUDE); viewModel.executeProviderQuery() },
+                        onClearHistory = viewModel::clearProviderChatHistory,
+                        description = "Anthropic Claude reasoning engine for deep analysis, code review, and architecture design."
+                    )
+                }
+
+                DevGateScreen.OLLAMA -> {
+                    ProviderScreen(
+                        title = "Ollama Local LLM",
+                        providerName = "OLLAMA",
+                        provider = com.example.devgate.data.api.AiProvider.OLLAMA,
+                        chatHistory = providerChatHistory.filter { it.provider == "OLLAMA" },
+                        promptInput = uiState.providerPromptInput,
+                        selectedModel = uiState.providerSelectedModel,
+                        isExecuting = uiState.isProviderExecuting,
+                        output = uiState.providerOutput,
+                        latencyMs = uiState.providerLatencyMs,
+                        availableModels = com.example.devgate.data.api.ProviderRouter.getAvailableModels(com.example.devgate.data.api.AiProvider.OLLAMA),
+                        onPromptChange = viewModel::setProviderPromptInput,
+                        onSelectModel = viewModel::setProviderModel,
+                        onExecute = { viewModel.setSelectedProvider(com.example.devgate.data.api.AiProvider.OLLAMA); viewModel.executeProviderQuery() },
+                        onClearHistory = viewModel::clearProviderChatHistory,
+                        description = "On-device local LLM inference. Install Ollama on your host machine and pull models."
+                    )
+                }
+
+                DevGateScreen.HERMES -> {
+                    ProviderScreen(
+                        title = "Hermes Agent Orchestrator",
+                        providerName = "HERMES",
+                        provider = com.example.devgate.data.api.AiProvider.HERMES,
+                        chatHistory = providerChatHistory.filter { it.provider == "HERMES" },
+                        promptInput = uiState.providerPromptInput,
+                        selectedModel = uiState.providerSelectedModel,
+                        isExecuting = uiState.isProviderExecuting,
+                        output = uiState.providerOutput,
+                        latencyMs = uiState.providerLatencyMs,
+                        availableModels = com.example.devgate.data.api.ProviderRouter.getAvailableModels(com.example.devgate.data.api.AiProvider.HERMES),
+                        onPromptChange = viewModel::setProviderPromptInput,
+                        onSelectModel = viewModel::setProviderModel,
+                        onExecute = { viewModel.setSelectedProvider(com.example.devgate.data.api.AiProvider.HERMES); viewModel.executeProviderQuery() },
+                        onClearHistory = viewModel::clearProviderChatHistory,
+                        description = "Bridge to vertex_orchestrator backend. Routes tasks to CrewAI (analysis), AutoGen (conversation), and Aider (code editing) via Google Vertex AI."
                     )
                 }
             }

@@ -12,9 +12,10 @@ import androidx.room.RoomDatabase
         SnippetEntity::class,
         CliHistoryEntity::class,
         JulesTaskEntity::class,
-        JulesStepEntity::class
+        JulesStepEntity::class,
+        ProviderChatEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

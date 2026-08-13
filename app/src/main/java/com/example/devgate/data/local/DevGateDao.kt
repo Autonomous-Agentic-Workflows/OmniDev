@@ -65,4 +65,20 @@ interface DevGateDao {
 
     @Query("UPDATE jules_steps SET status = :status, logOutput = :logOutput WHERE id = :stepId")
     suspend fun updateJulesStep(stepId: String, status: String, logOutput: String)
+
+    // Provider Chat History
+    @Query("SELECT * FROM provider_chats ORDER BY timestamp DESC LIMIT 100")
+    fun getProviderChatHistory(): Flow<List<ProviderChatEntity>>
+
+    @Query("SELECT * FROM provider_chats WHERE provider = :provider ORDER BY timestamp DESC LIMIT 50")
+    fun getProviderChatHistoryByProvider(provider: String): Flow<List<ProviderChatEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProviderChat(entry: ProviderChatEntity)
+
+    @Query("DELETE FROM provider_chats")
+    suspend fun clearProviderChatHistory()
+
+    @Query("DELETE FROM provider_chats WHERE provider = :provider")
+    suspend fun clearProviderChatHistoryByProvider(provider: String)
 }

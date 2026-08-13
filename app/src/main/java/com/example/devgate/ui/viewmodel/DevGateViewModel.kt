@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.devgate.data.local.AppDatabase
+import com.example.devgate.data.api.ProviderRouter
 import com.example.devgate.data.models.*
 import com.example.devgate.repository.DevGateRepository
 import kotlinx.coroutines.flow.*
@@ -16,6 +17,10 @@ enum class DevGateScreen {
     GEMMA,
     SPARK,
     JULES,
+    VERTEX_AI,
+    CLAUDE,
+    OLLAMA,
+    HERMES,
     SETTINGS
 }
 
@@ -58,7 +63,17 @@ data class DevGateUiState(
     val showNewTaskDialog: Boolean = false,
     // System Status
     val apiKeyConfigured: Boolean = true,
-    val activeBannerIndex: Int = 0
+    val activeBannerIndex: Int = 0,
+    // Multi-Provider State
+    val providerSettings: ProviderSettingsState = ProviderSettingsState(),
+    val selectedProvider: com.example.devgate.data.api.AiProvider = com.example.devgate.data.api.AiProvider.GEMINI,
+    val providerPromptInput: String = "",
+    val providerSelectedModel: String = "gemini-2.5-flash",
+    val providerOutput: String = "",
+    val isProviderExecuting: Boolean = false,
+    val providerLatencyMs: Long = 0L,
+    val hermesBackendStatus: Boolean = false,
+    val isCheckingHermesHealth: Boolean = false
 )
 
 class DevGateViewModel(application: Application) : AndroidViewModel(application) {
@@ -128,34 +143,6 @@ class DevGateViewModel(application: Application) : AndroidViewModel(application)
 
     fun setGlobalGatePrompt(prompt: String) {
         _uiState.update { it.copy(globalGatePrompt = prompt) }
-    }
-
-    fun dispatchGlobalGatePrompt() {
-        val prompt = _uiState.value.globalGatePrompt.trim()
-        if (prompt.isEmpty()) return
-
-        val lower = prompt.lowercase()
-        when {
-            lower.contains("git") || lower.contains("commit") || lower.contains("branch") -> {
-                _uiState.update { it.copy(currentScreen = DevGateScreen.GIT, commitMessageInput = prompt) }
-            }
-            lower.contains("spark") || lower.contains("code") || lower.contains("snippet") -> {
-                _uiState.update { it.copy(currentScreen = DevGateScreen.SPARK, sparkPrompt = prompt) }
-                generateSparkCode()
-            }
-            lower.contains("gemma") || lower.contains("local") || lower.contains("quant") -> {
-                _uiState.update { it.copy(currentScreen = DevGateScreen.GEMMA, gemmaPromptInput = prompt) }
-                runGemmaEvaluation()
-            }
-            lower.contains("jules") || lower.contains("agent") || lower.contains("auto") -> {
-                _uiState.update { it.copy(currentScreen = DevGateScreen.JULES, newTaskTitle = prompt, showNewTaskDialog = true) }
-            }
-            else -> {
-                _uiState.update { it.copy(currentScreen = DevGateScreen.GEMINI_CLI, cliInput = prompt) }
-                executeCliCommand()
-            }
-        }
-        _uiState.update { it.copy(globalGatePrompt = "") }
     }
 
     // Git Actions
@@ -375,5 +362,126 @@ class DevGateViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             repository.advanceJulesTaskStep(taskId, stepIndexToAdvance)
         }
+    }
+
+    // --- Multi-Provider Actions ---
+
+    val providerChatHistory: StateFlow<List<ProviderChatEntry>> = repository.providerChatHistory.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    fun setSelectedProvider(provider: com.example.devgate.data.api.AiProvider) {
+        val defaultModel = ProviderRouter.getDefaultModel(provider)
+        _uiState.update {
+            it.copy(
+                selectedProvider = provider,
+                providerSelectedModel = defaultModel
+            )
+        }
+    }
+
+    fun setProviderPromptInput(text: String) {
+        _uiState.update { it.copy(providerPromptInput = text) }
+    }
+
+    fun setProviderModel(model: String) {
+        _uiState.update { it.copy(providerSelectedModel = model) }
+    }
+
+    fun updateProviderSettings(settings: ProviderSettingsState) {
+        _uiState.update { it.copy(providerSettings = settings) }
+    }
+
+    fun executeProviderQuery() {
+        val prompt = _uiState.value.providerPromptInput.ifBlank { return }
+        val provider = _uiState.value.selectedProvider
+        val model = _uiState.value.providerSelectedModel
+        val settings = _uiState.value.providerSettings
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isProviderExecuting = true) }
+            val entry = repository.executeProviderQuery(
+                provider = provider,
+                prompt = prompt,
+                model = model,
+                settings = settings
+            )
+            _uiState.update {
+                it.copy(
+                    providerOutput = entry.response,
+                    isProviderExecuting = false,
+                    providerLatencyMs = entry.latencyMs,
+                    providerPromptInput = ""
+                )
+            }
+        }
+    }
+
+    fun clearProviderChatHistory() {
+        viewModelScope.launch {
+            repository.clearProviderChatHistory()
+            _uiState.update { it.copy(providerOutput = "") }
+        }
+    }
+
+    fun checkHermesHealth() {
+        val url = _uiState.value.providerSettings.hermesBackendUrl
+        viewModelScope.launch {
+            _uiState.update { it.copy(isCheckingHermesHealth = true) }
+            val healthy = repository.checkHermesHealth(url)
+            _uiState.update {
+                it.copy(
+                    hermesBackendStatus = healthy,
+                    isCheckingHermesHealth = false
+                )
+            }
+        }
+    }
+
+    // Update global gate dispatch to route to new providers
+    fun dispatchGlobalGatePrompt() {
+        val prompt = _uiState.value.globalGatePrompt.trim()
+        if (prompt.isEmpty()) return
+
+        val lower = prompt.lowercase()
+        when {
+            lower.contains("vertex") || lower.contains("gcloud") -> {
+                _uiState.update { it.copy(currentScreen = DevGateScreen.VERTEX_AI, providerPromptInput = prompt) }
+                executeProviderQuery()
+            }
+            lower.contains("claude") || lower.contains("anthropic") -> {
+                _uiState.update { it.copy(currentScreen = DevGateScreen.CLAUDE, providerPromptInput = prompt) }
+                executeProviderQuery()
+            }
+            lower.contains("ollama") || lower.contains("local llm") -> {
+                _uiState.update { it.copy(currentScreen = DevGateScreen.OLLAMA, providerPromptInput = prompt) }
+                executeProviderQuery()
+            }
+            lower.contains("hermes") || lower.contains("orchestrator") -> {
+                _uiState.update { it.copy(currentScreen = DevGateScreen.HERMES, providerPromptInput = prompt) }
+                executeProviderQuery()
+            }
+            lower.contains("git") || lower.contains("commit") || lower.contains("branch") -> {
+                _uiState.update { it.copy(currentScreen = DevGateScreen.GIT, commitMessageInput = prompt) }
+            }
+            lower.contains("spark") || lower.contains("code") || lower.contains("snippet") -> {
+                _uiState.update { it.copy(currentScreen = DevGateScreen.SPARK, sparkPrompt = prompt) }
+                generateSparkCode()
+            }
+            lower.contains("gemma") || lower.contains("local") || lower.contains("quant") -> {
+                _uiState.update { it.copy(currentScreen = DevGateScreen.GEMMA, gemmaPromptInput = prompt) }
+                runGemmaEvaluation()
+            }
+            lower.contains("jules") || lower.contains("agent") || lower.contains("auto") -> {
+                _uiState.update { it.copy(currentScreen = DevGateScreen.JULES, newTaskTitle = prompt, showNewTaskDialog = true) }
+            }
+            else -> {
+                _uiState.update { it.copy(currentScreen = DevGateScreen.GEMINI_CLI, cliInput = prompt) }
+                executeCliCommand()
+            }
+        }
+        _uiState.update { it.copy(globalGatePrompt = "") }
     }
 }

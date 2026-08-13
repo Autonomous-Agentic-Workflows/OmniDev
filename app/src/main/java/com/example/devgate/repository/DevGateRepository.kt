@@ -4,6 +4,10 @@ import com.example.devgate.data.api.GeminiApiClient
 import com.example.devgate.data.local.DevGateDao
 import com.example.devgate.data.local.GitCommitEntity
 import com.example.devgate.data.local.GitRepoEntity
+import com.example.devgate.data.api.AiProvider
+import com.example.devgate.data.api.HermesBridgeClient
+import com.example.devgate.data.api.ProviderRouter
+import com.example.devgate.data.local.ProviderChatEntity
 import com.example.devgate.data.local.JulesStepEntity
 import com.example.devgate.data.local.JulesTaskEntity
 import com.example.devgate.data.local.SnippetEntity
@@ -499,5 +503,117 @@ class DevGateRepository(
                 dao.updateJulesTaskStatus(taskId, "COMPLETED", steps.size - 1, "Jules Autonomous Agent completed all $currentStepIndex steps. Workspace ready.")
             }
         }
+    }
+
+    // --- Multi-Provider Operations ---
+
+    val providerChatHistory: Flow<List<ProviderChatEntry>> = dao.getProviderChatHistory().map { entities ->
+        entities.map {
+            ProviderChatEntry(
+                id = it.id,
+                provider = it.provider,
+                model = it.model,
+                prompt = it.prompt,
+                response = it.response,
+                timestamp = it.timestamp,
+                latencyMs = it.latencyMs,
+                isSuccess = it.isSuccess,
+                error = it.error
+            )
+        }
+    }
+
+    fun getProviderChatHistoryByProvider(provider: String): Flow<List<ProviderChatEntry>> =
+        dao.getProviderChatHistoryByProvider(provider).map { entities ->
+            entities.map {
+                ProviderChatEntry(
+                    id = it.id,
+                    provider = it.provider,
+                    model = it.model,
+                    prompt = it.prompt,
+                    response = it.response,
+                    timestamp = it.timestamp,
+                    latencyMs = it.latencyMs,
+                    isSuccess = it.isSuccess,
+                    error = it.error
+                )
+            }
+        }
+
+    suspend fun executeProviderQuery(
+        provider: AiProvider,
+        prompt: String,
+        systemInstruction: String? = null,
+        model: String? = null,
+        settings: ProviderSettingsState,
+        temperature: Float = 0.7f,
+        maxTokens: Int = 2048
+    ): ProviderChatEntry {
+        val response = ProviderRouter.route(
+            provider = provider,
+            prompt = prompt,
+            systemInstruction = systemInstruction,
+            model = model,
+            settings = settings.toRouterSettings(),
+            temperature = temperature,
+            maxTokens = maxTokens
+        )
+
+        val entry = ProviderChatEntry(
+            provider = response.provider,
+            model = response.model,
+            prompt = prompt,
+            response = response.content,
+            latencyMs = response.latencyMs,
+            isSuccess = response.isSuccess,
+            error = response.error
+        )
+
+        dao.insertProviderChat(
+            ProviderChatEntity(
+                id = entry.id,
+                provider = entry.provider,
+                model = entry.model,
+                prompt = entry.prompt,
+                response = entry.response,
+                timestamp = entry.timestamp,
+                latencyMs = entry.latencyMs,
+                isSuccess = entry.isSuccess,
+                error = entry.error
+            )
+        )
+        return entry
+    }
+
+    suspend fun clearProviderChatHistory() {
+        dao.clearProviderChatHistory()
+    }
+
+    suspend fun clearProviderChatHistoryByProvider(provider: String) {
+        dao.clearProviderChatHistoryByProvider(provider)
+    }
+
+    // --- Unified AI commit generation (can use any provider) ---
+
+    suspend fun generateAiCommitMessageMultiProvider(
+        diffText: String,
+        provider: AiProvider,
+        settings: ProviderSettingsState
+    ): String {
+        val prompt = "Generate a concise conventional git commit message (e.g. feat(...): ..., fix(...): ...) for these diff changes: $diffText"
+        val entry = executeProviderQuery(
+            provider = provider,
+            prompt = prompt,
+            systemInstruction = "You are a git commit message generator. Output only the commit message.",
+            settings = settings,
+            temperature = 0.3f
+        )
+        return if (entry.isSuccess) entry.response else "feat(core): update gateway interface"
+    }
+
+    // --- Hermes backend health check ---
+
+    suspend fun checkHermesHealth(backendUrl: String): Boolean {
+        return HermesBridgeClient.checkHealth(backendUrl)
     }
 }

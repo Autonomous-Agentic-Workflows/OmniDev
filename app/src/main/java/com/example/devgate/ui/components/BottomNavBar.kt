@@ -6,8 +6,11 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Hub
 import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Terminal
@@ -35,8 +38,10 @@ fun BottomNavBar(
         NavTabItem(DevGateScreen.DASHBOARD, "Gate", Icons.Default.Dashboard, "nav_dashboard"),
         NavTabItem(DevGateScreen.GIT, "Git", Icons.Default.AccountTree, "nav_git"),
         NavTabItem(DevGateScreen.GEMINI_CLI, "CLI", Icons.Default.Terminal, "nav_cli"),
-        NavTabItem(DevGateScreen.GEMMA, "Gemma", Icons.Default.Memory, "nav_gemma"),
-        NavTabItem(DevGateScreen.SPARK, "Spark", Icons.Default.Bolt, "nav_spark"),
+        NavTabItem(DevGateScreen.VERTEX_AI, "Vertex", Icons.Default.Cloud, "nav_vertex"),
+        NavTabItem(DevGateScreen.CLAUDE, "Claude", Icons.Default.Psychology, "nav_claude"),
+        NavTabItem(DevGateScreen.OLLAMA, "Ollama", Icons.Default.Memory, "nav_ollama"),
+        NavTabItem(DevGateScreen.HERMES, "Hermes", Icons.Default.Hub, "nav_hermes"),
         NavTabItem(DevGateScreen.JULES, "Jules", Icons.Default.SmartToy, "nav_jules"),
         NavTabItem(DevGateScreen.SETTINGS, "Config", Icons.Default.Settings, "nav_settings")
     )
