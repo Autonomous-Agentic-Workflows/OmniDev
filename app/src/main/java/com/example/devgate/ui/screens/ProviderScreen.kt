@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.sp
 import com.example.devgate.data.api.AiProvider
 import com.example.devgate.data.models.ProviderChatEntry
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProviderScreen(
     title: String,

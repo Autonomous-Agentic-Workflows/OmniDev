@@ -49,7 +49,8 @@ object GeminiApiClient {
     suspend fun queryGemini(
         prompt: String,
         systemInstructionText: String? = null,
-        modelName: String = "gemini-3.5-flash"
+        modelName: String = "gemini-3.5-flash",
+        temperature: Float = 0.7f
     ): Result<String> = withContext(Dispatchers.IO) {
         val apiKey = try {
             BuildConfig.GEMINI_API_KEY
@@ -71,7 +72,7 @@ object GeminiApiClient {
                 contents = listOf(Content(parts = listOf(Part(text = prompt)), role = "user")),
                 systemInstruction = systemInstruction,
                 generationConfig = GenerationConfig(
-                    temperature = 0.7f,
+                    temperature = temperature,
                     topP = 0.95f,
                     maxOutputTokens = 2048
                 )

@@ -7,7 +7,10 @@ on:
     branches: [main]
 
 env:
-  JAVA_VERSION: '17'
+  # Robolectric needs Java 21 for the sdk = [36] unit tests.
+  JAVA_VERSION: '21'
+  # No Gradle wrapper is committed; AGP 9.1 needs Gradle 9.3.1+.
+  GRADLE_VERSION: '9.3.1'
   GRADLE_OPTS: '-Xmx4g -Dorg.gradle.daemon=false'
 
 jobs:
@@ -25,20 +28,13 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-lint-${{ hashFiles('**/*.gradle.kts', '**/libs.versions.toml') }}
-          restore-keys: gradle-lint-
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew || true
+          gradle-version: ${{ env.GRADLE_VERSION }}
 
       - name: Run Lint
-        run: ./gradlew lint --no-daemon --stacktrace
+        run: gradle lint --no-daemon --stacktrace
 
   # --- Unit Tests ---
   unit-tests:
@@ -54,20 +50,13 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-test-${{ hashFiles('**/*.gradle.kts', '**/libs.versions.toml') }}
-          restore-keys: gradle-test-
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew || true
+          gradle-version: ${{ env.GRADLE_VERSION }}
 
       - name: Run Unit Tests
-        run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
+        run: gradle testDebugUnitTest --no-daemon --stacktrace
 
   # --- Build Debug APK ---
   build-debug:
@@ -84,20 +73,20 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
 
-      - name: Cache Gradle
-        uses: actions/cache@v4
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-build-${{ hashFiles('**/*.gradle.kts', '**/libs.versions.toml') }}
-          restore-keys: gradle-build-
+          gradle-version: ${{ env.GRADLE_VERSION }}
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew || true
+      # app/build.gradle.kts signs debug builds with the gitignored debug.keystore.
+      - name: Create debug keystore
+        run: |
+          keytool -genkeypair -v -keystore debug.keystore -storepass android \
+            -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 \
+            -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: gradle assembleDebug --no-daemon --stacktrace
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
@@ -113,6 +102,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
 
