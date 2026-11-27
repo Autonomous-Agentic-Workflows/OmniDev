@@ -7,7 +7,8 @@ on:
     branches: [main]
 
 env:
-  JAVA_VERSION: '17'
+  # Robolectric needs Java 21 for the sdk = [36] unit tests.
+  JAVA_VERSION: '21'
   # No Gradle wrapper is committed; AGP 9.1 needs Gradle 9.3.1+.
   GRADLE_VERSION: '9.3.1'
   GRADLE_OPTS: '-Xmx4g -Dorg.gradle.daemon=false'
